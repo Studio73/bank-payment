@@ -343,44 +343,6 @@ class AccountPaymentOrder(models.Model):
         return True
 
     @api.model
-    def generate_fininst_postal_address(self, parent_node, bank, gen_args):
-        if not gen_args.get('pain_bank_address') or not bank:
-            return
-        # name is a required field on res.bank
-        name = etree.SubElement(parent_node, 'Nm')
-        name.text = self._prepare_field(
-            'Bank Name', 'bank.name',
-            {'bank': bank}, 140, gen_args=gen_args)
-        if not (bank.country or bank.city):
-            return
-        postal_address = etree.SubElement(parent_node, 'PstlAdr')
-        if bank.zip:
-            bankzip = etree.SubElement(postal_address, 'PstCd')
-            bankzip.text = self._prepare_field(
-                'Bank Zip', 'bank.zip',
-                {'bank': bank}, 16, gen_args=gen_args)
-        if bank.city:
-            city = etree.SubElement(postal_address, 'TwnNm')
-            city.text = self._prepare_field(
-                'Bank City', 'bank.city',
-                {'bank': bank}, 35, gen_args=gen_args)
-        if bank.country:
-            country_code = etree.SubElement(postal_address, 'Ctry')
-            country_code.text = self._prepare_field(
-                'Bank Country Code', 'bank.country.code',
-                {'bank': bank}, 2, gen_args=gen_args)
-        if bank.street:
-            adrline1 = etree.SubElement(postal_address, 'AdrLine')
-            adrline1.text = self._prepare_field(
-                'Bank Address Line1', 'bank.street',
-                {'bank': bank}, 70, gen_args=gen_args)
-        if bank.street2:
-            adrline2 = etree.SubElement(postal_address, 'AdrLine')
-            adrline2.text = self._prepare_field(
-                'Bank Address Line2', 'bank.street2',
-                {'bank': bank}, 70, gen_args=gen_args)
-
-    @api.model
     def generate_party_agent(
             self, parent_node, party_type, order, partner_bank, gen_args,
             bank_line=None):
@@ -400,8 +362,6 @@ class AccountPaymentOrder(models.Model):
             party_agent_bic = etree.SubElement(
                 party_agent_institution, gen_args.get('bic_xml_tag'))
             party_agent_bic.text = partner_bank.bank_bic
-            self.generate_fininst_postal_address(
-                party_agent_institution, partner_bank.bank_id, gen_args)
         else:
             if order == 'B' or (
                     order == 'C' and gen_args['payment_method'] == 'DD'):
@@ -409,8 +369,6 @@ class AccountPaymentOrder(models.Model):
                     parent_node, '%sAgt' % party_type)
                 party_agent_institution = etree.SubElement(
                     party_agent, 'FinInstnId')
-                self.generate_fininst_postal_address(
-                    party_agent_institution, partner_bank.bank_id, gen_args)
                 party_agent_other = etree.SubElement(
                     party_agent_institution, 'Othr')
                 party_agent_other_identification = etree.SubElement(
@@ -456,19 +414,6 @@ class AccountPaymentOrder(models.Model):
         """Generate the piece of the XML corresponding to PstlAdr"""
         if partner.country_id:
             postal_address = etree.SubElement(parent_node, 'PstlAdr')
-            if gen_args.get('pain_flavor').startswith(
-                    'pain.001.001.') or gen_args.get('pain_flavor').startswith(
-                    'pain.008.001.'):
-                if partner.zip:
-                    pstcd = etree.SubElement(postal_address, 'PstCd')
-                    pstcd.text = self._prepare_field(
-                        'Postal Code', 'partner.zip',
-                        {'partner': partner}, 16, gen_args=gen_args)
-                if partner.city:
-                    twnnm = etree.SubElement(postal_address, 'TwnNm')
-                    twnnm.text = self._prepare_field(
-                        'Town Name', 'partner.city',
-                        {'partner': partner}, 35, gen_args=gen_args)
             country = etree.SubElement(postal_address, 'Ctry')
             country.text = self._prepare_field(
                 'Country', 'partner.country_id.code',
@@ -478,10 +423,10 @@ class AccountPaymentOrder(models.Model):
                 adrline1.text = self._prepare_field(
                     'Address Line1', 'partner.street',
                     {'partner': partner}, 70, gen_args=gen_args)
-            if partner.street2:
+            if partner.city and partner.zip:
                 adrline2 = etree.SubElement(postal_address, 'AdrLine')
                 adrline2.text = self._prepare_field(
-                    'Address Line2', 'partner.street2',
+                    'Address Line2', "partner.zip + ' ' + partner.city",
                     {'partner': partner}, 70, gen_args=gen_args)
 
         return True
